@@ -1,6 +1,7 @@
 import random
-from networkx.algorithms import bipartite
 import networkx as nx
+import matplotlib.pyplot as plt
+import numpy as np
 
 def round_robin_allocation_by_group(num_items, groups, preferences):
     allocation = {agent: [] for group in groups for agent in group}
@@ -82,9 +83,6 @@ def main(n_each, k, num_items):
     for i in range(num_agents):
         preferences.append([random.random() for j in range(num_items)])
 
-    print("num_of_agent_in_each_group:",n_each)
-    print("num_of_groups:",k)
-    print("num__of_items:",num_items)
     # print("groups:",groups)
     # print("preferences:",preferences)
     allocation = round_robin_allocation_by_group(num_items, groups, preferences)
@@ -102,18 +100,60 @@ def main(n_each, k, num_items):
                 utility += preferences[agent][allocation[agent][0]]
         utility_list.append(utility)
 
+    utility_list_other = []
     
     for p in range(k):
-        print("----------Class",p,"evaluates class",p,"'s bunlde as",utility_list[p])
+    #     print("----------Class",p,"evaluates class",p,"'s bunlde as",utility_list[p])
+    #     print("----------Class",p,"evaluates whole set of item as", cal_maximum_matching(groups_util[p], range(num_items), preferences))
+
+        utility_list_other_each = []
         for q in range(k):
             bundle_q = []
             for agent in groups_util[q]:
                 bundle_q += allocation[agent]
             #print("bundle_q",bundle_q)
             cal = cal_maximum_matching(groups_util[p], bundle_q, preferences)
-            print("Class",p,"evaluates class",q,"'s bunlde as",cal)
+            # print("Class",p,"evaluates class",q,"'s bunlde as",cal)
+            utility_list_other_each.append(cal)
+        utility_list_other.append(utility_list_other_each)
 
-    return 0
+    return utility_list, utility_list_other
 
 if __name__ == '__main__':
-    print(main(10,10,1000))
+    # print(main(10,10,1000))
+    n_each = 10
+    k = 10
+    num_items = 1
+
+    print("num_of_agent_in_each_group:",n_each)
+    print("num_of_groups:",k)
+    print("num__of_items:",num_items)
+
+    all_utility_list = []
+    all_utility_list_other = []
+    for i in range(100):
+        utility_list, utility_list_other = main(n_each, k, num_items)
+        # print(utility_list)
+        # print(utility_list_other)
+        all_utility_list += utility_list
+        for j in range(len(utility_list_other)):
+            for l in range(10):
+                if l != j:
+                    all_utility_list_other.append(utility_list_other[j][l])
+                    break
+
+    # print(all_utility_list)
+    # print(all_utility_list_other)
+
+    # ヒストグラムの描画
+    plt.hist(all_utility_list, bins=100, alpha=0.5, label='Utilities')
+    plt.hist(all_utility_list_other, bins=100, alpha=0.5, label='Other Value')
+
+    # 凡例の追加
+    plt.legend()
+
+    # タイトル
+    plt.title('('+str(n_each) + ',' + str(k) + ',' + str(num_items)+')')
+
+    # グラフの表示
+    plt.show()
