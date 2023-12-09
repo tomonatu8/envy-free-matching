@@ -38,19 +38,7 @@ def round_robin_allocation_by_group(num_items, groups, preferences):
 
     return allocation
 
-# 使用例
-# num_items = 5
-# groups = [[0, 1], [2, 3], [4, 5]]
-# num_agents = 6
-# preferences = []
-# for i in range(num_agents):
-#     preferences.append([j for j in range(num_items)])
 
-# print(preferences)
-# allocation = round_robin_allocation_by_group(num_items, groups, preferences)
-# print(allocation)
-# for i in allocation:
-#     print("Agent",i,"s' items: ", allocation[i])
 
 
 def cal_maximum_matching(left_list, right_list, preferences):
@@ -97,6 +85,7 @@ def main(n_each, k, num_items):
 
     # print("allocation:",allocation)
 
+    # groupsのリストはアルゴリズム内で変更されているため，もう一度同じリストを作成．
     groups_util = []
     for i in range(k):
         groups_util.append([i*n_each + j for j in range(n_each)]) 
@@ -127,10 +116,30 @@ def main(n_each, k, num_items):
 
     return utility_list, utility_list_other, max_w_mat/k
 
+
+
 def generate_uniform_random_list(num_items):
+    """
+    ある個数のアイテムに対し, 0から1の範囲で一様に分布したランダムな値のリストを生成
+
+    Args:
+        num_items (int): 生成するランダムな値の数
+
+    Returns:
+        List[float]: 0から1の範囲のランダムな値を含むリスト
+    """
     return [random.random() for j in range(num_items)]
 
 def generate_truncnorm_list(num_items):
+     """
+    ある個数のアイテムに対し, 0から1の範囲で特定のパラメータの切断正規分布に従ったランダムな値のリストを生成
+
+    Args:
+        num_items (int): 生成するランダムな値の数
+
+    Returns:
+        List[float]: 0から1の範囲のランダムな値を含むリスト
+    """
 
     lower_clip = 0.
     upper_clip = 1.
