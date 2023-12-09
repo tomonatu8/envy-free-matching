@@ -2,6 +2,7 @@ import random
 import networkx as nx
 import matplotlib.pyplot as plt
 import numpy as np
+from scipy.stats import truncnorm
 
 def round_robin_allocation_by_group(num_items, groups, preferences):
     allocation = {agent: [] for group in groups for agent in group}
@@ -81,10 +82,17 @@ def main(n_each, k, num_items):
     num_agents = n_each * k
     preferences = []
     for i in range(num_agents):
-        preferences.append([random.random() for j in range(num_items)])
+        # preferences.append(generate_uniform_random_list(num_items))
+        preferences.append(generate_truncnorm_list(num_items))
 
     # print("groups:",groups)
     # print("preferences:",preferences)
+
+    max_w_mat = cal_maximum_matching(range(k*n_each), range(num_items), preferences)
+    # print("全体の最大重みマッチングの値は",max_w_mat)
+    # print("そのうち平均して",max_w_mat/k)
+    # 最大重みマッチングがどれくらいEFやEF1になるか調べる
+
     allocation = round_robin_allocation_by_group(num_items, groups, preferences)
 
     # print("allocation:",allocation)
@@ -117,13 +125,34 @@ def main(n_each, k, num_items):
             utility_list_other_each.append(cal)
         utility_list_other.append(utility_list_other_each)
 
-    return utility_list, utility_list_other
+    return utility_list, utility_list_other, max_w_mat/k
+
+def generate_uniform_random_list(num_items):
+    return [random.random() for j in range(num_items)]
+
+def generate_truncnorm_list(num_items):
+
+    lower_clip = 0.
+    upper_clip = 1.
+    mu = 0.5
+    sd = 0.3
+
+    p = truncnorm.rvs((lower_clip - mu) / sd, (upper_clip - mu) / sd, mu, sd, size=num_items)
+    return list(p)
 
 if __name__ == '__main__':
+    # lower_clip = 0.
+    # upper_clip = 1.
+    # mu = 0.5
+    # sd = 0.3
+
+    # plt.hist(truncnorm.rvs((lower_clip - mu) / sd, (upper_clip - mu) / sd, mu, sd, size=1000), alpha=0.5)
+    # plt.show()
+
     # print(main(10,10,1000))
-    n_each = 10
-    k = 10
-    num_items = 1
+    n_each = 100
+    k = 2
+    num_items = 250
 
     print("num_of_agent_in_each_group:",n_each)
     print("num_of_groups:",k)
@@ -131,23 +160,30 @@ if __name__ == '__main__':
 
     all_utility_list = []
     all_utility_list_other = []
+
+    all_max_weight_match_list = []
+
     for i in range(100):
-        utility_list, utility_list_other = main(n_each, k, num_items)
+        print(i)
+        utility_list, utility_list_other, max_weight_match = main(n_each, k, num_items)
         # print(utility_list)
         # print(utility_list_other)
         all_utility_list += utility_list
+        all_max_weight_match_list.append(max_weight_match)
         for j in range(len(utility_list_other)):
-            for l in range(10):
+            for l in range(100):
                 if l != j:
                     all_utility_list_other.append(utility_list_other[j][l])
                     break
 
-    # print(all_utility_list)
-    # print(all_utility_list_other)
+    print("mean(all_utility_list)",np.mean(all_utility_list))
+    print("mean(all_utility_list_other)",np.mean(all_utility_list_other))
+    print("mean(all_utility_list) - mean(all_utility_list_other)",np.mean(all_utility_list) - np.mean(all_utility_list_other))
 
     # ヒストグラムの描画
     plt.hist(all_utility_list, bins=100, alpha=0.5, label='Utilities')
     plt.hist(all_utility_list_other, bins=100, alpha=0.5, label='Other Value')
+    plt.hist(all_max_weight_match_list, bins=100, alpha=0.5, label='Max weight matching/k')
 
     # 凡例の追加
     plt.legend()
