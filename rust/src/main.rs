@@ -1,4 +1,3 @@
-use core::alloc;
 use std::collections::HashSet;
 use std::collections::HashMap;
 use rand::Rng;
@@ -9,6 +8,7 @@ use num_traits::{Bounded, Signed, Zero};
 use fixedbitset::FixedBitSet;
 use std::iter::Sum;
 use std::fmt::Debug;
+use std::env;
 
 use std::cmp::max;
 use std::thread;
@@ -20,11 +20,26 @@ use indicatif::{ProgressBar, ProgressStyle};
 
 
 fn main() {
+    let args: Vec<String> = env::args().collect();
 
-    let n_each: usize = 20;
+    let n_each: usize = match args[1].parse() {
+        Ok(n) => n,
+        Err(_) => {
+            println!("Invalid argument: {}", args[1]);
+            return;
+        }
+    };
+    let num_items: usize = match args[2].parse() {
+        Ok(n) => n,
+        Err(_) => {
+            println!("Invalid argument: {}", args[2]);
+            return;
+        }
+    };
+    //let n_each: usize = 10;
+    //let num_items: usize = 100;
+
     let num_groups: usize = 4;
-    let num_items: usize = 100;
-
     let num_tries: usize = 100;
 
     let file_name_p = format!("outcome/outcome_p_{}_{}.csv",n_each,num_items);
