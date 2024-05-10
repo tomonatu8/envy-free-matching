@@ -5,5 +5,8 @@
 
 
 ```bash
+mkdir outcome
 cargo run  
 ```
+
+See `outcome.ipynb`.
