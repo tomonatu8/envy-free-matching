@@ -300,15 +300,11 @@ fn fixed_size_max_weight_matching(weights: &[Vec<i128>], k: usize) -> (i128, Vec
                 let y = path[i + 1];
                 if x != n + m && y != m + n + 1 {
                     if x < n && n - 1 < y {
-                        // println!("あ, {}",(max_weight as f64)/(10000000.0));
                         matched_left[x] = y-n;
                         matched_right[y-n] = x;
                         max_weight += weights[x][y-n];
-                        // println!("あ, {}",(max_weight as f64)/(10000000.0));
                     } else if y < n && n - 1 < x {
-                        // println!("い, {}",(max_weight as f64)/(10000000.0));
                         max_weight -= weights[y][x-n];
-                        // println!("い, {}",(max_weight as f64)/(10000000.0));
                     }
                 }
             }
