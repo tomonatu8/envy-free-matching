@@ -1,202 +1,8 @@
 use std::collections::HashSet;
 use std::collections::HashMap;
-use rand::Rng;
-use csv;
-use std::fs;
-use std::io;
-use num_traits::{Bounded, Signed, Zero};
-use fixedbitset::FixedBitSet;
-use std::iter::Sum;
-use std::fmt::Debug;
-use std::env;
-
-use std::cmp::max;
-use std::thread;
-use std::time::Duration;
-use indicatif::{ProgressBar, ProgressStyle};
 
 
-
-
-
-fn main() {
-    let args: Vec<String> = env::args().collect();
-
-    let n_each: usize = match args[1].parse() {
-        Ok(n) => n,
-        Err(_) => {
-            println!("Invalid argument: {}", args[1]);
-            return;
-        }
-    };
-    let num_items: usize = match args[2].parse() {
-        Ok(n) => n,
-        Err(_) => {
-            println!("Invalid argument: {}", args[2]);
-            return;
-        }
-    };
-    //let n_each: usize = 10;
-    //let num_items: usize = 100;
-
-    let num_groups: usize = 4;
-    let num_tries: usize = 100;
-
-    let file_name_p = format!("outcome/outcome_p_{}_{}.csv",n_each,num_items);
-    let file_out_p = fs::File::options()
-        .write(true)
-        .create(true)
-        .open(file_name_p)
-        .expect("CSV write failure");
-    let mut wtr_p = csv::Writer::from_writer(&file_out_p);
-
-
-    let file_name_pq = format!("outcome/outcome_pq_{}_{}.csv",n_each,num_items);
-    let file_out_pq = fs::File::options()
-        .write(true)
-        .create(true)
-        .open(file_name_pq)
-        .expect("CSV write failure");
-    let mut wtr_pq = csv::Writer::from_writer(&file_out_pq);
-
-
-    let pb = ProgressBar::new(num_tries as u64);
-    
-    for _ in 0..num_tries {
-        //thread::sleep(Duration::from_millis(5));
-        pb.inc(1);
-
-        let mut groups: Vec<Vec<usize>> = Vec::new();
-        for i in 0..num_groups {
-            groups.push((0..n_each).map(|j| i * n_each + j).collect());
-        }
-
-
-        let num_agents = n_each * num_groups;
-
-
-        let mut preferences: Vec<Vec<f64>> = Vec::new();
-        let mut rng = rand::thread_rng();
-        for _ in 0..num_agents {
-            preferences.push((0..num_items).map(|_| rng.gen()).collect());
-        }
-
-        //println!("groups: {:?}", groups);
-
-        let (allocation, utility_list) = round_robin_allocation_by_group(num_items, num_groups, n_each, &groups, &preferences);
-        // println!("allocation \n {:?}", allocation);
-        // println!("utility_list \n {:?}", utility_list);
-
-        
-        for p in 0..num_groups {
-            // println!("----------Class {} evaluates class {} 's bundle as {}.", p, p, utility_list[p]);
-            //// println!("----------Class {} evaluates whole set of item as {}.", p, compute_max_weight_matching(groups_util[p].clone(), (0..num_items).collect(), &preferences).0);
-
-            
-            wtr_p.serialize(utility_list[p]).expect("CSV write failure");
-            
-            
-            //let mut utility_list_other_each: Vec<f64> = Vec::new();
-
-            for q in 0..num_groups {
-                // println!("{:?}",bundle_q);
-                let (max_weight, assign) = compute_max_weight_matching(groups[p].clone(), allocation[q].clone().into_iter().collect(), &preferences, n_each);
-
-                println!("Class {} evaluates class {}'s bundle as {}.", p, q, max_weight);
-
-                //if q != p {
-                //    utility_list_other_each.push(cal);
-                //}
-                if q == (p + 1)%num_groups {
-                    wtr_pq.serialize(max_weight).expect("CSV write failure");
-                }
-            }
-        }
-    }
-}
-
-
-fn round_robin_allocation_by_group(num_items: usize, num_groups: usize, n_each: usize, groups: &Vec<Vec<usize>>, preferences: &Vec<Vec<f64>>) -> (Vec<HashSet<usize>>, Vec<f64>) {
-    // let mut allocation: HashMap<usize, Vec<usize>> = HashMap::new();
-    let mut allocation: Vec<HashSet<usize>> = vec![HashSet::new(); num_groups];
-    // println!("allocation {:?}",allocation);
-
-    let mut utility_list: Vec<f64> = vec![0.0; num_groups];
-
-    let mut available_items: Vec<usize> = (0..num_items).collect();
-
-    let mut selected: HashMap<usize, bool> = HashMap::new();
-    for p in 0..num_groups {
-        selected.insert(p, false);
-    }
-
-    let mut match_size = 0;
-
-    while !available_items.is_empty() {
-
-        match_size += 1;
-
-        // println!("---allocation {:?}", allocation);
-        // println!("---available_items {:?}", available_items);
-        // println!("---round {:?}", match_size);
-
-        let mut terminate = true;
-        for p in 0..num_groups {
-            if allocation[p].len() < n_each {
-                terminate = false;
-            }
-        }
-        if terminate {
-            break;
-        }
-
-
-        for p in 0..num_groups {
-
-            // println!("---Class {:?}", p);
-
-            if allocation[p].len() == n_each {
-                continue;
-            }
-
-            let mut aval_items_for_each_group = available_items.clone();
-            if !&allocation[p].is_empty() {
-                aval_items_for_each_group.extend(&allocation[p]);
-            }
-            // println!("aval_items_for_each_group {:?}", aval_items_for_each_group);
-
-            let (max_weight, assignments) = compute_max_weight_matching(groups[p].clone(), aval_items_for_each_group.clone(), &preferences, match_size);
-
-            // println!("max_weight {:?}", max_weight);
-
-            let new_allocation_p = assignments;
-            let diff: HashSet<usize> = allocation[p].symmetric_difference(&new_allocation_p).cloned().collect();
-            
-            // println!("allocation[p] {:?}", allocation[p]);
-            // println!("new_allocation_p {:?}", new_allocation_p);
-
-            // println!("diff {:?}",diff);
-            // println!("diff.len() {}",diff.len());
-            assert!(diff.len() == 1, "diff.len() == 1");
-
-            allocation[p] = new_allocation_p;
-            utility_list[p] = max_weight;
-
-            if !diff.is_empty() {
-                if let Some(&item) = diff.iter().next() {
-                    if let Some(pos) = available_items.iter().position(|&x| x == item) {
-                        available_items.remove(pos);
-                    }
-                }
-            } 
-        }
-    }
-    (allocation, utility_list)
-}
-
-
-
-fn compute_max_weight_matching(left_list: Vec<usize>, right_list: Vec<usize>, preferences: &[Vec<f64>], match_size: usize) -> (f64, HashSet<usize>) {
+pub fn compute_max_weight_matching(left_list: Vec<usize>, right_list: Vec<usize>, preferences: &[Vec<f64>], match_size: usize) -> (f64, HashSet<usize>) {
     let mut weights: Vec<Vec<i128>> = vec![vec![0; right_list.len()]; left_list.len()];
     let mut right_map: HashMap<usize, usize> = HashMap::new();
 
@@ -353,6 +159,8 @@ fn fixed_size_max_weight_matching(weights: &[Vec<i128>], k: usize) -> (i128, Vec
     (max_weight, right_matched)
 }
 
+
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -370,7 +178,6 @@ mod tests {
         m[(1, 1)] = (11.0*(100000.0)) as i128;
         println!("{:?}",m);
 
-        let match_size: usize = 1;
 
         //println!("Maximum weight matching: {:?}", kuhn_munkres(&matrix![[1]]));
         println!("Maximum weight matching: {:?}", kuhn_munkres(&m));
@@ -411,6 +218,7 @@ mod tests {
 
     #[test]
     fn test_compute_max_weight_matching() {
+        use rand::Rng;
         
         let n_each: usize = 10;
         let num_groups: usize = 10;
@@ -438,33 +246,4 @@ mod tests {
         println!("assignments: {:?}", assignments);
         assert_eq!(assignments.len(),match_size);
     }
-
-    #[test]
-    fn test_round_robin_allocation_by_group() {
-        let n_each: usize = 20;
-        let num_groups: usize = 5;
-        let num_items: usize = 200;
-
-
-        let mut groups: Vec<Vec<usize>> = Vec::new();
-        for i in 0..num_groups {
-            groups.push((0..n_each).map(|j| i * n_each + j).collect());
-        }
-
-
-        let num_agents = n_each * num_groups;
-
-
-        let mut preferences: Vec<Vec<f64>> = Vec::new();
-        let mut rng = rand::thread_rng();
-        for _ in 0..num_agents {
-            preferences.push((0..num_items).map(|_| rng.gen()).collect());
-        }
-
-        //println!("groups: {:?}", groups);
-
-        let (allocation, utility_list) = round_robin_allocation_by_group(num_items, num_groups, n_each, &groups, &preferences);
-        println!("allocation \n {:?}", allocation);
-        println!("utility_list \n {:?}", utility_list);
-        }
 }
